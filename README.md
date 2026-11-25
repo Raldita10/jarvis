@@ -76,8 +76,10 @@ Como los lentes se mueven con tu cabeza, Jarvis ubica el tablero con 4 marcadore
    "ajustar a la página"), recórtalos por la línea y pon cada uno por fuera de su esquina,
    tocándola: 0 en a1, 1 en h1, 2 en h8, 3 en a8. Sin marcadores también se puede usar
    la página con el celular fijo y "Calibrar tablero".
-2. **Modo desarrollador:** en la app Meta AI ve a Configuración, tus lentes, y activa
-   "Modo desarrollador". Se apaga solo cuando los lentes se actualizan; vuelve a activarlo.
+2. **Modo desarrollador:** con los lentes conectados a la app Meta AI, entra a
+   Configuración, Información de la app, y toca 5 veces el número de versión. Aparece el
+   interruptor de "Modo desarrollador": actívalo y confirma. Se apaga solo cuando los
+   lentes se actualizan; vuelve a activarlo.
 3. **Bajar la app:** en GitHub entra a la pestaña **Actions**, abre la última ejecución de
    "App de iPhone" que salió en verde y descarga **Jarvis-ipa** (es un .zip con `Jarvis.ipa`).
 4. **Instalarla desde Windows con Sideloadly** (gratis):
