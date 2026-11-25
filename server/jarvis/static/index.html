@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jarvis</title>
+<style>
+  :root { --bg: #0b1220; --panel: #131c2e; --text: #e6edf7; --muted: #8ea0bd; --accent: #4cc3ff; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px system-ui, sans-serif; }
+  main { max-width: 720px; margin: 0 auto; padding: 16px; display: grid; gap: 12px; }
+  h1 { margin: 0; font-size: 22px; color: var(--accent); letter-spacing: 2px; }
+  .stage { position: relative; background: #000; border-radius: 12px; overflow: hidden; }
+  video, canvas { width: 100%; display: block; }
+  canvas { position: absolute; inset: 0; height: 100%; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; }
+  button, select, input { font: inherit; padding: 10px 14px; border-radius: 10px; border: 1px solid #2a3a57;
+    background: var(--panel); color: var(--text); }
+  button.primary { background: var(--accent); color: #00121c; border: none; font-weight: 600; }
+  input { flex: 1; min-width: 0; }
+  #hint { color: var(--muted); min-height: 1.4em; }
+  #log { background: var(--panel); border-radius: 12px; padding: 12px; max-height: 260px; overflow: auto;
+    font-size: 14px; display: grid; gap: 6px; }
+  .best { color: var(--accent); font-weight: 600; }
+</style>
+</head>
+<body>
+<main>
+  <h1>J.A.R.V.I.S.</h1>
+  <div class="stage"><video id="video" playsinline muted></video><canvas id="overlay"></canvas></div>
+  <div id="hint">Pulsa "Cámara" para empezar.</div>
+  <div class="row">
+    <button class="primary" id="cam">Cámara</button>
+    <button id="calib">Calibrar tablero</button>
+    <select id="color">
+      <option value="white">Juego con blancas</option>
+      <option value="black">Juego con negras</option>
+      <option value="both">Aconsejar a ambos</option>
+    </select>
+    <button id="undo">Deshacer</button>
+    <button id="reset">Partida nueva</button>
+  </div>
+  <div class="row">
+    <button class="primary" id="talk">🎙️ Hablar</button>
+    <input id="text" placeholder="O escríbele a Jarvis…">
+    <button id="send">Enviar</button>
+  </div>
+  <div id="log"></div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const video = $("video"), overlay = $("overlay"), ctx = overlay.getContext("2d");
+const grab = document.createElement("canvas");
+let ws, corners = [], calibrating = false, streaming = false;
+const NAMES = ["a1", "h1", "h8", "a8"];
+const KEY = new URLSearchParams(location.search).get("key") || "";
+const Q = KEY ? `?key=${encodeURIComponent(KEY)}` : "";
+
+function log(html) {
+  const div = document.createElement("div");
+  div.innerHTML = html;
+  $("log").prepend(div);
+}
+function say(text) {
+  if (!text || !window.speechSynthesis) return;
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "es-MX";
+  speechSynthesis.cancel();
+  speechSynthesis.speak(u);
+}
+
+function connect() {
+  ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws/board${Q}`);
+  ws.binaryType = "arraybuffer";
+  ws.onopen = () => ws.send(JSON.stringify({ type: "color", color: $("color").value }));
+  ws.onclose = () => setTimeout(connect, 1000);
+  ws.onmessage = (e) => {
+    const ev = JSON.parse(e.data);
+    if (ev.type === "move") {
+      log(`♟️ ${ev.by}: <b>${ev.san}</b>` +
+          (ev.suggestion ? ` → <span class="best">${ev.suggestion.san}</span> (${ev.suggestion.eval})` : ""));
+    } else if (ev.type === "ready") {
+      log("✅ Tablero listo" + (ev.suggestion ? ` → <span class="best">${ev.suggestion.san}</span>` : ""));
+    } else if (ev.type === "unclear") {
+      log("⚠️ No entendí la jugada");
+    } else if (ev.type === "reset") {
+      log("↺ Posición: " + ev.fen);
+    }
+    say(ev.say);
+  };
+}
+
+$("cam").onclick = async () => {
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+  video.srcObject = stream;
+  await video.play();
+  $("hint").textContent = "Ahora pulsa \"Calibrar tablero\".";
+  if (!ws) connect();
+  if (!streaming) { streaming = true; sendFrames(); }
+};
+
+function sendFrames() {
+  setInterval(() => {
+    if (!ws || ws.readyState !== 1 || corners.length < 4 || !video.videoWidth) return;
+    if (ws.bufferedAmount > 200000) return;  // red lenta: salta cuadros en vez de acumular retraso
+    grab.width = video.videoWidth; grab.height = video.videoHeight;
+    grab.getContext("2d").drawImage(video, 0, 0);
+    grab.toBlob((b) => b && b.arrayBuffer().then((buf) => ws.send(buf)), "image/jpeg", 0.7);
+  }, 150);
+}
+
+function draw() {
+  overlay.width = overlay.clientWidth; overlay.height = overlay.clientHeight;
+  ctx.clearRect(0, 0, overlay.width, overlay.height);
+  const sx = overlay.width / (video.videoWidth || 1), sy = overlay.height / (video.videoHeight || 1);
+  ctx.strokeStyle = "#4cc3ff"; ctx.fillStyle = "#4cc3ff"; ctx.lineWidth = 3; ctx.font = "16px sans-serif";
+  ctx.beginPath();
+  corners.forEach(([x, y], i) => {
+    ctx.fillText(NAMES[i], x * sx + 6, y * sy - 6);
+    i ? ctx.lineTo(x * sx, y * sy) : ctx.moveTo(x * sx, y * sy);
+  });
+  if (corners.length === 4) ctx.closePath();
+  ctx.stroke();
+}
+
+$("calib").onclick = () => {
+  corners = []; calibrating = true; draw();
+  $("hint").textContent = "Toca las esquinas exteriores en orden: a1, h1, h8, a8 (a1 es la esquina oscura a la izquierda de las blancas).";
+};
+overlay.onclick = (e) => {
+  if (!calibrating) return;
+  const r = overlay.getBoundingClientRect();
+  corners.push([(e.clientX - r.left) * video.videoWidth / r.width, (e.clientY - r.top) * video.videoHeight / r.height]);
+  draw();
+  if (corners.length === 4) {
+    calibrating = false;
+    ws.send(JSON.stringify({ type: "calibrate", corners }));
+    $("hint").textContent = "Calibrado. Deja el tablero en la posición inicial y aparta la mano.";
+  }
+};
+$("color").onchange = () => ws && ws.send(JSON.stringify({ type: "color", color: $("color").value }));
+$("undo").onclick = () => ws && ws.send(JSON.stringify({ type: "undo" }));
+$("reset").onclick = () => ws && ws.send(JSON.stringify({ type: "reset" }));
+
+async function ask(text) {
+  if (!text) return;
+  log("🗣️ " + text);
+  const r = await fetch("/api/chat" + Q, { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }) });
+  const { answer } = await r.json();
+  log("🤖 " + answer);
+  say(answer);
+}
+$("send").onclick = () => { ask($("text").value.trim()); $("text").value = ""; };
+$("text").onkeydown = (e) => e.key === "Enter" && $("send").onclick();
+
+const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+$("talk").onclick = () => {
+  if (!Recognition) return log("Este navegador no reconoce voz; escribe el mensaje.");
+  const rec = new Recognition();
+  rec.lang = "es-MX";
+  rec.onresult = (e) => ask(e.results[0][0].transcript);
+  rec.start();
+  $("talk").textContent = "🎙️ Escuchando…";
+  rec.onend = () => $("talk").textContent = "🎙️ Hablar";
+};
+</script>
+</body>
+</html>
