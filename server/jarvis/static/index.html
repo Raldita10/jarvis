@@ -32,6 +32,7 @@
   <div class="row">
     <button class="primary" id="cam">Cámara</button>
     <button id="calib">Calibrar tablero</button>
+    <button id="markers">Usar marcadores</button>
     <select id="color">
       <option value="white">Juego con blancas</option>
       <option value="black">Juego con negras</option>
@@ -51,7 +52,7 @@
 const $ = (id) => document.getElementById(id);
 const video = $("video"), overlay = $("overlay"), ctx = overlay.getContext("2d");
 const grab = document.createElement("canvas");
-let ws, corners = [], calibrating = false, streaming = false;
+let ws, corners = [], calibrating = false, streaming = false, useMarkers = false;
 const NAMES = ["a1", "h1", "h8", "a8"];
 const KEY = new URLSearchParams(location.search).get("key") || "";
 const Q = KEY ? `?key=${encodeURIComponent(KEY)}` : "";
@@ -102,7 +103,7 @@ $("cam").onclick = async () => {
 
 function sendFrames() {
   setInterval(() => {
-    if (!ws || ws.readyState !== 1 || corners.length < 4 || !video.videoWidth) return;
+    if (!ws || ws.readyState !== 1 || (corners.length < 4 && !useMarkers) || !video.videoWidth) return;
     if (ws.bufferedAmount > 200000) return;  // red lenta: salta cuadros en vez de acumular retraso
     grab.width = video.videoWidth; grab.height = video.videoHeight;
     grab.getContext("2d").drawImage(video, 0, 0);
@@ -124,8 +125,13 @@ function draw() {
   ctx.stroke();
 }
 
+$("markers").onclick = () => {
+  corners = []; calibrating = false; useMarkers = true; draw();
+  ws && ws.send(JSON.stringify({ type: "markers" }));
+  $("hint").textContent = "Buscando los 4 marcadores impresos junto a las esquinas del tablero.";
+};
 $("calib").onclick = () => {
-  corners = []; calibrating = true; draw();
+  corners = []; calibrating = true; useMarkers = false; draw();
   $("hint").textContent = "Toca las esquinas exteriores en orden: a1, h1, h8, a8 (a1 es la esquina oscura a la izquierda de las blancas).";
 };
 overlay.onclick = (e) => {

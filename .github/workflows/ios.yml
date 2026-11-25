@@ -1,0 +1,51 @@
+# Compila la app de iPhone en una Mac de GitHub (gratis) y deja Jarvis.ipa para instalar con Sideloadly.
+name: App de iPhone
+
+on:
+  push:
+    paths: ["ios/**", ".github/workflows/ios.yml"]
+  pull_request:
+    paths: ["ios/**", ".github/workflows/ios.yml"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Elegir el Xcode más nuevo
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)"
+          xcodebuild -version
+
+      - name: Generar el proyecto de Xcode
+        working-directory: ios
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Compilar
+        working-directory: ios
+        run: |
+          xcodebuild -project Jarvis.xcodeproj -scheme Jarvis -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO build
+
+      - name: Empaquetar Jarvis.ipa
+        run: |
+          mkdir Payload
+          cp -R ios/build/Build/Products/Release-iphoneos/Jarvis.app Payload/
+          # Firma provisional con los permisos de Wi-Fi que pide el kit de Meta;
+          # Sideloadly la vuelve a firmar con tu Apple ID y conserva esos permisos.
+          if [ -d Payload/Jarvis.app/Frameworks ]; then
+            for fw in Payload/Jarvis.app/Frameworks/*.framework; do codesign -f -s - "$fw"; done
+          fi
+          codesign -f -s - --entitlements ios/Support/Jarvis.entitlements Payload/Jarvis.app
+          codesign -d --entitlements - Payload/Jarvis.app
+          zip -qry Jarvis.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Jarvis-ipa
+          path: Jarvis.ipa

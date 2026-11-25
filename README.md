@@ -9,7 +9,7 @@ por voz y sigue tus partidas de ajedrez en vivo con la cámara para entrenarte.
 ## Cómo funciona
 
 ```
-Cámara (navegador hoy, Oakley Meta HSTN después)
+Cámara (Oakley Meta HSTN vía la app de iPhone, o el navegador)
         │  video en vivo (JPEG ~6 por segundo, WebSocket)
         ▼
 Servidor Jarvis en tu PC (Python)
@@ -68,6 +68,33 @@ arranca Jarvis y escríbele `/start`. Te responderá con tu id; ponlo en
 `TELEGRAM_ALLOWED_USER_ID` y reinicia. Comandos: `/tablero`, `/fen <FEN>`, `/nueva`, o
 simplemente escríbele.
 
+## Con tus lentes Oakley Meta HSTN
+
+Como los lentes se mueven con tu cabeza, Jarvis ubica el tablero con 4 marcadores impresos.
+
+1. **Marcadores:** imprime [`server/marcadores.png`](server/marcadores.png) al 100% (sin
+   "ajustar a la página"), recórtalos por la línea y pon cada uno por fuera de su esquina,
+   tocándola: 0 en a1, 1 en h1, 2 en h8, 3 en a8. Sin marcadores también se puede usar
+   la página con el celular fijo y "Calibrar tablero".
+2. **Modo desarrollador:** en la app Meta AI ve a Configuración, tus lentes, y activa
+   "Modo desarrollador". Se apaga solo cuando los lentes se actualizan; vuelve a activarlo.
+3. **Bajar la app:** en GitHub entra a la pestaña **Actions**, abre la última ejecución de
+   "App de iPhone" que salió en verde y descarga **Jarvis-ipa** (es un .zip con `Jarvis.ipa`).
+4. **Instalarla desde Windows con Sideloadly** (gratis):
+   - Instala iTunes y iCloud en su versión de la web de Apple (no la de Microsoft Store),
+     y Sideloadly de <https://sideloadly.io>.
+   - Conecta el iPhone por cable, arrastra `Jarvis.ipa` a Sideloadly, pon tu Apple ID y
+     pulsa Start.
+   - En el iPhone: Configuración, General, VPN y gestión de dispositivos, confía en tu
+     Apple ID. Desde iOS 16 también hay que activar Configuración, Privacidad y
+     seguridad, Modo de desarrollador.
+   - Con un Apple ID gratis la app dura 7 días. Sideloadly puede renovarla sola por Wi‑Fi
+     si lo dejas abierto en la PC (opción de auto-refresh).
+5. **Usarla:** abre Jarvis en el iPhone, escribe la dirección del servidor (la del túnel
+   `https://…trycloudflare.com` o la IP de tu PC en casa, por ejemplo
+   `192.168.1.50:8000`) y la clave, pulsa Conectar, luego "Vincular lentes con Meta AI" y
+   "Ver por mis lentes". Jarvis te habla por las bocinas de los lentes.
+
 ## Pruebas
 
 ```
@@ -88,9 +115,6 @@ enroque y captura al paso, y que el servidor devuelva la sugerencia de Stockfish
 
 ## Lo que sigue
 
-1. **App de iPhone para los Oakley Meta HSTN** con el Wearables Device Access Toolkit de
-   Meta: manda el video de los lentes a este servidor y reproduce la voz de Jarvis en sus
-   bocinas. Se compila gratis con GitHub Actions y se instala con Sideloadly o AltStore.
-2. **Voz local** en la PC (Whisper para entender, una voz sintética para hablar) para que
+1. **Voz local** en la PC (Whisper para entender, una voz sintética para hablar) para que
    todo funcione igual en los lentes.
-3. Más habilidades para Jarvis: recordatorios, clima, música, notas.
+2. Más habilidades para Jarvis: recordatorios, clima, música, notas.

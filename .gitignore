@@ -3,3 +3,5 @@ __pycache__/
 .venv/
 server/.env
 .pytest_cache/
+ios/build/
+ios/*.xcodeproj/
