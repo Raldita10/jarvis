@@ -94,6 +94,8 @@ async def chat(body: ChatIn, request: Request):
 async def coach(event: dict) -> dict:
     """Agrega a una jugada detectada la sugerencia para el siguiente turno."""
     board = state.reader.board
+    if event.get("earlier"):
+        event["san"] = " ".join(event["earlier"] + [event["san"]])
     if state.my_color is not None and board.turn != state.my_color:
         event["say"] = f"{event['san']}."
         return event
@@ -114,7 +116,7 @@ async def board_ws(ws: WebSocket):
         while True:
             msg = await ws.receive()
             if msg.get("bytes"):
-                if state.reader.corners is None:
+                if not state.reader.ready_for_frames:
                     continue
                 img = cv2.imdecode(np.frombuffer(msg["bytes"], np.uint8), cv2.IMREAD_COLOR)
                 if img is None:
@@ -139,6 +141,9 @@ async def board_ws(ws: WebSocket):
                 if kind == "calibrate":
                     state.reader.calibrate(data["corners"])
                     await ws.send_json({"type": "calibrated"})
+                elif kind == "markers":
+                    state.reader.use_markers()
+                    await ws.send_json({"type": "calibrated", "mode": "markers"})
                 elif kind == "reset":
                     state.reader.reset(data.get("fen"))
                     await ws.send_json({"type": "reset", "fen": state.reader.board.fen()})
